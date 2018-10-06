@@ -1,0 +1,39 @@
+#!/bin/bash
+
+export PATH=/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/bin
+set -eu
+
+readonly shutdown_key_brcm_pin_='5'
+readonly polling_interval_sec_='5'
+readonly debounce_interval_sec_='0.2'
+
+
+
+#
+# NOTE:
+#   This program use the two command: "gpio".
+#   You can get it from here:
+#     - apt-get install wiringpi
+#
+
+gpio -g mode "$shutdown_key_brcm_pin_" up
+
+while true; do
+  sleep "$polling_interval_sec_"
+  cur="`gpio -g read "$shutdown_key_brcm_pin_"`"
+  if [ 'x0' = "x${cur}" ]; then
+    sleep "$debounce_interval_sec_"
+    a="`gpio -g read "$shutdown_key_brcm_pin_"`"
+    sleep "$debounce_interval_sec_"
+    b="`gpio -g read "$shutdown_key_brcm_pin_"`"
+    sleep "$debounce_interval_sec_"
+    c="`gpio -g read "$shutdown_key_brcm_pin_"`"
+    if [ 'x0' = "x${a}" -a 'x0' = "x${b}" -a 'x0' = "x${c}" ]; then
+      echo Shutdown 1>&2
+      sync
+      sync
+      sync
+      shutdown -h now
+    fi
+  fi
+done

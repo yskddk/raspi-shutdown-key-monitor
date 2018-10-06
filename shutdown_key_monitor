@@ -1,0 +1,44 @@
+#!/bin/bash
+#!/bin/bash -vx
+
+export PATH=/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/bin
+set -eu
+
+readonly shutdown_key_brcm_pin_='5'
+readonly debounce_interval_sec_='0.2'
+
+
+#
+# NOTE:
+#   This program use the two commands: "gpio" and "rfd".
+#   You can get them from here:
+#     - apt-get install wiringpi
+#     - https://github.com/yusuke-dada-k/rfd and make it
+#
+
+readonly sysfs_gpio_path_="/sys/class/gpio/gpio${shutdown_key_brcm_pin_}"
+
+gpio -g mode "$shutdown_key_brcm_pin_" up
+echo "$shutdown_key_brcm_pin_" > '/sys/class/gpio/export'
+sleep 3
+echo 'falling' > "${sysfs_gpio_path_}/edge"
+
+while true; do
+  rfd --gpio "${sysfs_gpio_path_}/value" > /dev/null 2>&1
+  cur="`cat "${sysfs_gpio_path_}/value"`"
+  if [ 'x0' = "x${cur}" ]; then
+    sleep "$debounce_interval_sec_"
+    a="`cat "${sysfs_gpio_path_}/value"`"
+    sleep "$debounce_interval_sec_"
+    b="`cat "${sysfs_gpio_path_}/value"`"
+    sleep "$debounce_interval_sec_"
+    c="`cat "${sysfs_gpio_path_}/value"`"
+    if [ 'x0' = "x${a}" -a 'x0' = "x${b}" -a 'x0' = "x${c}" ]; then
+      echo Shutdown 1>&2
+      sync
+      sync
+      sync
+      shutdown -h now
+    fi
+  fi
+done
